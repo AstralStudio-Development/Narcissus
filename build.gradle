@@ -1,0 +1,40 @@
+// Root build.gradle — shared configuration for all subprojects
+
+allprojects {
+    group   = 'cn.starry.narcissus'
+    version = project.property('projectVersion')
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(project.property('javaVersion') as int)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
+        maven { url = 'https://hub.spigotmc.org/nexus/content/groups/public' }
+        // Mojang brigadier (transitive dep of BungeeCord)
+        maven { url = 'https://libraries.minecraft.net' }
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${project.property('junitVersion')}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+}

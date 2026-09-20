@@ -1,0 +1,33 @@
+# Build outputs
+target/
+build/
+.gradle/
+out/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# macOS
+.DS_Store
+
+# Runtime artefacts (not committed)
+server.properties
+world.schematic
+
+# Gradle wrapper zip (jar is committed; zip is cached locally)
+gradle/wrapper/gradle-wrapper.jar.sha256
+
+# Local protocol reference data (downloaded, not committed) and scratch scripts
+protocol-data/
+proto774.json
+login774.json
+extract_ids.py
+gen_registry.py

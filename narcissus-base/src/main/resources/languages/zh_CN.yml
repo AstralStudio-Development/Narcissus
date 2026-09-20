@@ -1,0 +1,18 @@
+messages:
+  unknown-command: Unknown command. Type "/help" for help.
+  unsupported-client: "&c你的版本不被此服务器支持，请联系管理员并提供版本协议码: %protocol_version%"
+  restart: "&c此服务器正在重启"
+  not-allowed-chat: "&c通信功能在此服务器上不可用！"
+  limbo-command:
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - "&c你正在尝试加入的大厅人数已满或处于离线状态。"
+    - "&e因此，你来到了Limbo，一个存在你想象中的服务器。"
+    - "&d事实上，这个地方并不存在，所以你可以想呆多久就呆多久。"
+    - "&6想要返回“现实”，请输入 &b/lobby&6。"
+    - "&4不过，要小心，Limbo好像居住着什么东西。"

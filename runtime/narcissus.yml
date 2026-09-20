@@ -1,0 +1,10 @@
+# This is the main configuration file for Narcissus.
+# As you can see, there's tons to configure. Some options may impact gameplay, so use
+# with caution, and make sure you know what each option does before configuring.
+# If you need help with the configuration or have any questions related to Narcissus,
+# join us at the QQ group and inquire with the developers.
+# Default Language: ZH_CN (Simplified Chinese)
+
+config-version: 2
+settings:
+  default_language: zh_CN

@@ -1,0 +1,3 @@
+# Narcissus accounts
+# Passwords are stored as SHA-256 hashes by the plugin.
+accounts: {}

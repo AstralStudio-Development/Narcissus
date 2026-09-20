@@ -1,0 +1,18 @@
+messages:
+  unknown-command: Unknown command. Type "/help" for help.
+  unsupported-client: "&cYour version is not supported，Please contact sever's admin with Protocol code: %protocol_version%"
+  restart: "&cThis server was restarting."
+  not-allowed-chat: "&cChat is not allowed in this server！"
+  limbo-command:
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - " "
+    - "&cThe server u have to trying to join is full or offline。"
+    - "&eBecause that，You came to the Limbo，A server in your image。"
+    - "&dActually，This server is not available，so u can stay here when ever u want。"
+    - "&6If u want return to the “TRUE”，Please enter &b/lobby&6。"
+    - "&4But，Be care，Sth. may living at Limbo。"

@@ -1,0 +1,6 @@
+name: Narcissus
+version: 1.0.0-SNAPSHOT
+main: cn.starry.narcissus.bootstrap.NarcissusPlugin
+author: Stalyer
+description: Narcissus embedded limbo server for BungeeCord
+

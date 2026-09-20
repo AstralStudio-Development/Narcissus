@@ -1,0 +1,11 @@
+// narcissus-base: core limbo implementation
+// Compiles as a library that bootstrap fat-jars into the plugin.
+// The core has no third-party runtime dependencies; it only uses the JDK.
+
+jar {
+    archiveBaseName = 'narcissus-base'
+    manifest {
+        attributes 'Implementation-Title': 'Narcissus-Base',
+                   'Implementation-Version': project.version
+    }
+}

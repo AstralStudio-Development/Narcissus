@@ -11,7 +11,9 @@ class ProtocolVersionNamesTest
     {
         assertEquals("1.8", ProtocolVersionNames.forProtocol(47));
         assertEquals("1.21.11", ProtocolVersionNames.forProtocol(774));
+        assertEquals("26.1 / 26.1.1 / 26.1.2", ProtocolVersionNames.forProtocol(775));
         assertEquals("26.2", ProtocolVersionNames.forProtocol(776));
+        assertEquals("26.3", ProtocolVersionNames.forProtocol(777));
         assertEquals("12345", ProtocolVersionNames.forProtocol(12345));
     }
 }

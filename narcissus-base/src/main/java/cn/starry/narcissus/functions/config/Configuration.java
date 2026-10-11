@@ -30,7 +30,7 @@ public final class Configuration
 {
     public static final int DEFAULT_PORT = 65530;
     public static final List<Integer> DEFAULT_ALLOWED_VERSIONS = Collections.unmodifiableList(
-            Arrays.asList(47, 774, 776));
+            Arrays.asList(47, 774, 775, 776, 777));
 
     private final int maxSlots;
     private final int port;

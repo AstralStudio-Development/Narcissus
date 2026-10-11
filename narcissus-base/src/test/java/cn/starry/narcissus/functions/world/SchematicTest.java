@@ -11,8 +11,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.zip.GZIPInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,12 +64,9 @@ class SchematicTest
     @Test
     void complexModernBlockEntityPayloadsRoundTripAsNetworkNbt() throws Exception
     {
-        Path sample = Path.of("plat/LoohpLimbo-master/spawn.schem");
-        if (!Files.exists(sample))
-            sample = Path.of("..", "plat", "LoohpLimbo-master", "spawn.schem");
-        assertTrue(Files.exists(sample));
-        try (InputStream raw = Files.newInputStream(sample))
+        try (InputStream raw = Schematic.class.getResourceAsStream("/world/complex-modern.schem"))
         {
+            assertNotNull(raw);
             CompoundTag nbt = NBTTag.readTag(new GZIPInputStream(raw)).toCompoundTag();
             World world = Schematic.centered(nbt, 0, 90, 0).getWorld();
             int checked = 0;

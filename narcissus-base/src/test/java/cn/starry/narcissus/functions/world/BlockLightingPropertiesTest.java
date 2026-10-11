@@ -41,10 +41,12 @@ class BlockLightingPropertiesTest
     }
 
     @Test
-    void loadsOfficialModernPropertiesForBothProtocols()
+    void loadsOfficialModernPropertiesForAllProtocols()
     {
         assertModern("v774", "1.21.11");
+        assertModern("v775", "26.1");
         assertModern("v776", "26.2");
+        assertModern("v777", "26.3");
     }
 
     private static void assertModern(String versionDir, String sourceVersion)

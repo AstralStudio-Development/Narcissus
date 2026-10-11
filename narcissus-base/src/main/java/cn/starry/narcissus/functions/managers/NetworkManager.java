@@ -172,7 +172,9 @@ public class NetworkManager
         this.protocols.add(new HandshakeProtocol(this));
         this.protocols.add(new Protocol47(this));
         this.protocols.add(new Protocol774(this));
+        this.protocols.add(new Protocol775(this));
         this.protocols.add(new Protocol776(this));
+        this.protocols.add(new Protocol777(this));
 
         // Precompute every supported protocol profile on the immutable template.
         // Player copies share those arrays until their first private block edit.

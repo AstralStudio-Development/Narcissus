@@ -1,12 +1,12 @@
 package cn.starry.narcissus.bootstrap;
 
+import cn.starry.narcissus.functions.config.Configuration;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.InputStream;
 import java.io.FileInputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -17,7 +17,7 @@ import java.util.Map;
 public class NarcissusConfig {
 
     private static final List<Integer> DEFAULT_ALLOWED_VERSIONS =
-            Arrays.asList(47, 774, 776);
+            Configuration.DEFAULT_ALLOWED_VERSIONS;
 
     private final int port;
     private final String schematicFile;

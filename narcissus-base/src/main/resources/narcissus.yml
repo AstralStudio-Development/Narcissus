@@ -14,11 +14,14 @@ settings:
   schematic_file: world.schematic
   # Max player slots (-1 = unlimited)
   max_slots: -1
-  # Allowed client protocol versions. Missing means all native versions.
+  # Allowed native client protocols. Missing uses the same defaults below.
+  # Existing explicit lists are preserved; add new protocols to allow upgrades.
   allow-version:
-    - 47
-    - 774
-    - 776
+    - 47   # 1.8.x
+    - 774  # 1.21.11 (not 1.21.4)
+    - 775  # 26.1 / 26.1.1 / 26.1.2
+    - 776  # 26.2
+    - 777  # 26.3
   # BungeeCord server ID to connect to after successful login.
   login_target_server: Login
   # Authentication data files relative to the plugin data folder.

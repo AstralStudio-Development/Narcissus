@@ -38,30 +38,26 @@ public final class RegistryFixtures {
         return this.registryPackets;
     }
 
-    /**
-     * Pre-serialized {@code update_tags} packet body (after the packet id), or
-     * null when the version has no tagged registries to declare.
-     */
+    /** Non-null pre-serialized {@code update_tags} body, validated when fixtures load. */
     public byte[] getUpdateTagsBody() {
         return this.updateTagsBody;
     }
 
     /**
-     * Loads fixtures for a version directory (e.g. "v774"). Returns an empty
-     * list if the manifest is missing, so a version without fixtures degrades
-     * gracefully rather than throwing during class init.
+     * Loads a complete fixture set for a version directory (e.g. "v774").
+     * Missing mandatory resources fail during protocol initialization, before
+     * a client can enter configuration with partial registries or null tags.
      */
     public static RegistryFixtures load(String versionDir) {
         List<byte[]> bodies = new ArrayList<>();
         String base = "/registry/" + versionDir + "/";
         String manifestPath = base + "manifest.txt";
 
-        byte[] updateTags = readResource(base + "update_tags.bin");
+        byte[] updateTags = readRequiredResource(base + "update_tags.bin");
 
         try (InputStream manifestStream = RegistryFixtures.class.getResourceAsStream(manifestPath)) {
             if (manifestStream == null) {
-                Narcissus.LOGGER.warning("Registry manifest not found: " + manifestPath);
-                return new RegistryFixtures(bodies, updateTags);
+                throw new IllegalStateException("Registry manifest not found: " + manifestPath);
             }
             BufferedReader reader = new BufferedReader(new InputStreamReader(manifestStream, StandardCharsets.UTF_8));
             String line;
@@ -71,16 +67,21 @@ public final class RegistryFixtures {
                 String[] parts = line.split("\t");
                 if (parts.length < 2) continue;
                 String file = parts[1];
-                byte[] data = readResource(base + file);
-                if (data != null) {
-                    bodies.add(data);
-                }
+                bodies.add(readRequiredResource(base + file));
             }
         } catch (IOException ex) {
-            Narcissus.LOGGER.log(Level.SEVERE, "Failed to load registry fixtures for " + versionDir, ex);
+            throw new IllegalStateException("Failed to load registry fixtures for " + versionDir, ex);
         }
 
         return new RegistryFixtures(bodies, updateTags);
+    }
+
+    private static byte[] readRequiredResource(String path) {
+        byte[] data = readResource(path);
+        if (data == null || data.length == 0) {
+            throw new IllegalStateException("Missing or empty required registry fixture: " + path);
+        }
+        return data;
     }
 
     private static byte[] readResource(String path) {

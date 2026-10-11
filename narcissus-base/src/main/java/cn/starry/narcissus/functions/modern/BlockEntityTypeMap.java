@@ -16,10 +16,12 @@ import java.util.logging.Level;
 public final class BlockEntityTypeMap
 {
     private final Map<String, Integer> types;
+    private final boolean bedEntityRemoved;
 
-    private BlockEntityTypeMap(Map<String, Integer> types)
+    private BlockEntityTypeMap(Map<String, Integer> types, String versionDir)
     {
         this.types = Collections.unmodifiableMap(types);
+        this.bedEntityRemoved = "v776".equals(versionDir) || "v777".equals(versionDir);
     }
 
     public static BlockEntityTypeMap load(String versionDir)
@@ -31,7 +33,7 @@ public final class BlockEntityTypeMap
             if (input == null)
             {
                 Narcissus.LOGGER.warning("Block-entity type map not found: " + path);
-                return new BlockEntityTypeMap(types);
+                return new BlockEntityTypeMap(types, versionDir);
             }
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(input, StandardCharsets.UTF_8)))
@@ -61,7 +63,7 @@ public final class BlockEntityTypeMap
         {
             Narcissus.LOGGER.log(Level.WARNING, "Failed to load block-entity type map " + path, ex);
         }
-        return new BlockEntityTypeMap(types);
+        return new BlockEntityTypeMap(types, versionDir);
     }
 
     public int resolve(String id)
@@ -77,6 +79,17 @@ public final class BlockEntityTypeMap
                 return skull;
         }
         return -1;
+    }
+
+    /**
+     * Legacy schematic NBT that is intentionally omitted for this protocol.
+     * Official 26.2+ BedBlock no longer implements EntityBlock: the colored bed
+     * block state is sufficient, and old type 25 now denotes a conduit.
+     * Keep resolve() at -1 rather than assigning an invalid wire type.
+     */
+    public boolean isKnownRemoved(String id)
+    {
+        return this.bedEntityRemoved && "minecraft:bed".equals(normalize(id));
     }
 
     public int size()

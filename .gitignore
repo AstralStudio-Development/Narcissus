@@ -2,7 +2,7 @@
 target/
 build/
 .gradle/
-out/
+/out/
 
 # IntelliJ IDEA
 .idea/
@@ -19,8 +19,10 @@ out/
 .DS_Store
 
 # Runtime artefacts (not committed)
+/logs/
 server.properties
 world.schematic
+!narcissus-base/src/main/resources/world.schematic
 
 # Gradle wrapper zip (jar is committed; zip is cached locally)
 gradle/wrapper/gradle-wrapper.jar.sha256

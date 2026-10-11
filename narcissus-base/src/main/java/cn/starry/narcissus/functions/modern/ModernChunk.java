@@ -63,7 +63,7 @@ public final class ModernChunk {
     public static long[] buildMotionBlockingHeightmap(World world, Chunk chunk, int sectionCount,
                                                        int minY, ModernBlockStateMap stateMap) {
         byte[] legacy = chunk.getMap();
-        int sourceHeight = legacy.length / (16 * 16 * 2);
+        int sourceHeight = Math.min(256, legacy.length / (16 * 16 * 2)); // exclude trailing light/biome arrays
         int dimensionMaxY = minY + sectionCount * 16 - 1;
         int minSourceY = Math.max(0, minY);
         int maxSourceY = Math.min(sourceHeight - 1, dimensionMaxY);
@@ -165,7 +165,7 @@ public final class ModernChunk {
         java.util.BitSet set = new java.util.BitSet(sectionCount + 2);
         byte[] legacy = chunk.getMap();
         int minSection = Math.floorDiv(minY, 16);
-        int sourceSectionCount = legacy.length / (16 * 16 * 16 * 2);
+        int sourceSectionCount = Math.min(16, legacy.length / (16 * 16 * 16 * 2)); // remainder is light/biome storage
         for (int packetSection = 0; packetSection < sectionCount; packetSection++) {
             int sourceSection = minSection + packetSection;
             if (sourceSection < 0 || sourceSection >= sourceSectionCount) {
@@ -240,7 +240,7 @@ public final class ModernChunk {
             DataOutputStream out = new DataOutputStream(baos);
             byte[] legacy = chunk.getMap();
             int minSection = Math.floorDiv(minY, 16);
-            int sourceSectionCount = legacy.length / (16 * 16 * 16 * 2);
+            int sourceSectionCount = Math.min(16, legacy.length / (16 * 16 * 16 * 2)); // remainder is light/biome storage
             for (int packetSection = 0; packetSection < sectionCount; packetSection++) {
                 // Decode the source section represented by this dimension-relative packet section.
                 int[] states = new int[4096];
@@ -282,7 +282,9 @@ public final class ModernChunk {
                 if (nonAir == 0) {
                     writeSingleValuePalette(out, AIR_BLOCK_STATE);
                 } else {
-                    writeMultiValuePalette(out, states);
+                    int globalBits = stateMap == null ? 16
+                            : Math.max(9, 32 - Integer.numberOfLeadingZeros(stateMap.size() - 1));
+                    writeMultiValuePalette(out, states, globalBits);
                 }
                 writeSingleValuePalette(out, biomeId);
             }
@@ -296,7 +298,7 @@ public final class ModernChunk {
      * Writes a paletted container with a per-section palette built from the
      * given 4096 block-state ids (index = y<<8 | z<<4 | x).
      */
-    private static void writeMultiValuePalette(DataOutputStream out, int[] states) throws IOException {
+    private static void writeMultiValuePalette(DataOutputStream out, int[] states, int globalBits) throws IOException {
         // Build palette in first-seen order.
         List<Integer> palette = new ArrayList<>();
         int[] paletteIndex = new int[4096];
@@ -340,13 +342,16 @@ public final class ModernChunk {
                 out.writeLong(value);
             }
         } else {
-            // Match the 26.2 reference implementation's global palette mode:
-            // 16 bits per entry, four global state IDs per long, no local palette.
-            out.writeByte(16);
-            for (int base = 0; base < 4096; base += 4) {
+            // The global palette width is defined by the release's complete
+            // registry (15 bits in 26.1, 16 in 26.3), not the section's palette.
+            // SimpleBitStorage packs the first state into the lowest bits.
+            out.writeByte(globalBits);
+            int entriesPerLong = 64 / globalBits;
+            long mask = (1L << globalBits) - 1;
+            for (int base = 0; base < 4096; base += entriesPerLong) {
                 long value = 0L;
-                for (int entry = 0; entry < 4; entry++) {
-                    value = (value << 16) | (states[base + entry] & 0xFFFFL);
+                for (int entry = 0; entry < entriesPerLong && base + entry < 4096; entry++) {
+                    value |= ((long) states[base + entry] & mask) << (entry * globalBits);
                 }
                 out.writeLong(value);
             }

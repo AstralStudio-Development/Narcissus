@@ -88,6 +88,36 @@ class ModernChunkPaletteTest
         assertEquals(85L, overworld[0] & 0x1FFL);
     }
 
+    @Test
+    void globalPaletteWidthAndBitOrderFollowEachReleaseRegistry() throws Exception {
+        for (String version : new String[]{"v775", "v777"}) {
+            ModernBlockPalette palette = new ModernBlockPalette();
+            World world = new World(1, 1, 0, 0, palette);
+            ModernBlockStateMap stateMap = ModernBlockStateMap.load(version);
+            java.util.List<String> states;
+            try (var stream = ModernBlockStateMap.class.getResourceAsStream("/registry/" + version + "/blockstates.txt")) {
+                var reader = new java.io.BufferedReader(new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8));
+                states = reader.lines().filter(line -> !line.startsWith("#")).limit(300)
+                        .map(line -> line.split("\t")[0]).toList();
+            }
+            for (int i = 0; i < states.size(); i++) {
+                world.setModernBlockState(i & 15, i >> 8, (i >> 4) & 15, palette.indexOf(states.get(i)));
+            }
+            byte[] encoded = ModernChunk.buildChunkData(world, world.getChunk(0, 0), 16, 0,
+                    LegacyBlockMap.load(version), stateMap, true);
+            DataInputStream input = new DataInputStream(new ByteArrayInputStream(encoded));
+            input.readShort(); // non-air count
+            input.readShort(); // fluid count
+            // Mojang's release registries contain 29,873 (26.1) / 35,723 (26.3) states.
+            int bits = version.equals("v775") ? 15 : 16;
+            assertEquals(bits, input.readUnsignedByte(), "global palette width for " + version);
+            long first = input.readLong();
+            long mask = (1L << bits) - 1;
+            for (int entry = 0; entry < 64 / bits; entry++) {
+                assertEquals(stateMap.resolve(states.get(entry)), (int) ((first >>> (entry * bits)) & mask));
+            }
+        }
+    }
     private static void skipSingleValuePalette(DataInputStream input) throws IOException
     {
         assertEquals(0, input.readUnsignedByte());

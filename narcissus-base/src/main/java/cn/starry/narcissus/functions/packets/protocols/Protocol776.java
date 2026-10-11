@@ -54,19 +54,19 @@ public class Protocol776 extends Protocol774 {
 
     public Protocol776(NetworkManager networkManager) {
         super(networkManager);
-        // Register the 776-specific serializer classes so getPacketOutByClass
-        // resolves them to the correct (26.2) ids instead of the 774 classes.
+        // Resolve ids through hooks so derived versions cannot re-register these
+        // serializer classes at stale 26.2 ids after the base constructor ran.
         registerPacketOut(Status.LOGIN, 0x02, PacketLoginOutSuccess776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_JOIN_GAME, PacketPlayOutJoinGame776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_REMOVE_ENTITIES, PacketPlayOutRemoveEntities776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_ENTITY_METADATA, PacketPlayOutEntityMetadata776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_SET_PASSENGERS, PacketPlayOutSetPassengers776.class);
-        registerPacketOut(Status.PLAY, 0x45, PacketPlayOutPlayerInfoRemove776.class);
-        registerPacketOut(Status.PLAY, 0x46, PacketPlayOutPlayerInfoUpdate776.class);
-        registerPacketOut(Status.PLAY, 0x6d, PacketPlayOutSetPlayerTeam776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_SET_TIME, PacketPlayOutSetTime776.class);
-        registerPacketOut(Status.PLAY, 0x7a, PacketPlayOutTabList776.class);
-        registerPacketOut(Status.PLAY, P776_OUT_TELEPORT_ENTITY, PacketPlayOutTeleportEntity776.class);
+        registerPacketOut(Status.PLAY, idPlayOutJoinGame(), PacketPlayOutJoinGame776.class);
+        registerPacketOut(Status.PLAY, idPlayOutRemoveEntities(), PacketPlayOutRemoveEntities776.class);
+        registerPacketOut(Status.PLAY, idPlayOutEntityMetadata(), PacketPlayOutEntityMetadata776.class);
+        registerPacketOut(Status.PLAY, idPlayOutSetPassengers(), PacketPlayOutSetPassengers776.class);
+        registerPacketOut(Status.PLAY, idPlayOutPlayerInfoRemove(), PacketPlayOutPlayerInfoRemove776.class);
+        registerPacketOut(Status.PLAY, idPlayOutPlayerInfoUpdate(), PacketPlayOutPlayerInfoUpdate776.class);
+        registerPacketOut(Status.PLAY, idPlayOutSetPlayerTeam(), PacketPlayOutSetPlayerTeam776.class);
+        registerPacketOut(Status.PLAY, idPlayOutSetTime(), PacketPlayOutSetTime776.class);
+        registerPacketOut(Status.PLAY, idPlayOutTabList(), PacketPlayOutTabList776.class);
+        registerPacketOut(Status.PLAY, idPlayOutTeleportEntity(), PacketPlayOutTeleportEntity776.class);
     }
 
     @Override
@@ -84,6 +84,12 @@ public class Protocol776 extends Protocol774 {
     @Override
     public String getCorePackVersion() {
         return "26.2";
+    }
+
+    @Override
+    public int getBiomeId() {
+        // 26.2 inserts sulfur_caves before the_end in the synchronized biome registry.
+        return "minecraft:the_end".equals(getDimensionName()) ? 57 : super.getBiomeId();
     }
 
     @Override
@@ -106,11 +112,13 @@ public class Protocol776 extends Protocol774 {
     }
 
     @Override
+    protected int playerEntityTypeId() { return 156; }
+    @Override
     public cn.starry.narcissus.functions.packets.out.PacketOut createPlayerNpc(
             int entityId, java.util.UUID uuid, double x, double y, double z,
             float yaw, float pitch) {
         return new cn.starry.narcissus.functions.packets.out.protocol.v774.PacketPlayOutAddEntity774(
-                entityId, uuid, 156, x, y, z, yaw, pitch);
+                entityId, uuid, playerEntityTypeId(), x, y, z, yaw, pitch);
     }
 
     @Override

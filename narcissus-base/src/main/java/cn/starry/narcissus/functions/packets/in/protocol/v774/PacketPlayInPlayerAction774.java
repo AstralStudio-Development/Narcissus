@@ -55,17 +55,10 @@ public class PacketPlayInPlayerAction774 implements PacketIn {
         if (world == null) {
             return;
         }
-        // Protocol 774 packed block position: x = bits 38..63,
-        // y = bits 26..37, z = bits 0..25; all three fields are signed.
+        // Modern BlockPos: signed X/Z use 26 bits, signed Y occupies the low 12 bits.
         int x = (int) (this.position >> 38);
-        int y = (int) ((this.position >> 26) & 0xFFF);
-        if ((y & 0x800) != 0) {
-            y -= 0x1000;
-        }
-        int z = (int) (this.position & 0x3FFFFFFL);
-        if ((z & 0x2000000) != 0) {
-            z -= 0x4000000;
-        }
+        int y = (int) (this.position << 52 >> 52);
+        int z = (int) (this.position << 26 >> 38);
 
         if (!world.setBlockAir(x, y, z)) {
             return; // outside the loaded schematic: nothing to update

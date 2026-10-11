@@ -35,7 +35,7 @@ class ConfigurationTest {
     void builder_defaultPortIs65530() {
         Configuration cfg = Configuration.builder().build();
         assertEquals(Configuration.DEFAULT_PORT, cfg.getPort());
-        assertEquals(Arrays.asList(47, 774, 776), cfg.getAllowedVersions());
+        assertEquals(Arrays.asList(47, 774, 775, 776, 777), cfg.getAllowedVersions());
     }
 
     @Test

@@ -162,7 +162,7 @@ public final class ModernConfigurationDriver {
                 if (chunk == null) {
                     networkManager.sendPacket(playerManager, new PacketPlayOutChunkWithLight774(
                             world, cx, cz, protocol.getSectionCount(), protocol.getBiomeId(), protocol.getMinY(),
-                            protocol.hasSkyLight(), protocol.hasSectionBlockCountMarker()));
+                            protocol.hasSkyLight(), protocol.hasSectionBlockCountMarker(), protocol.hasByteArrayLightMasks()));
                 } else if (SERVER_AUTHORITATIVE_MODERN_WORLD) {
                     networkManager.sendPacket(playerManager, new PacketPlayOutChunkWithLight774(
                             chunk, protocol.getSectionCount(), protocol.getBiomeId(), protocol.getMinY(),
@@ -278,10 +278,7 @@ public final class ModernConfigurationDriver {
         for (Map.Entry<Long, Integer> entry : playerManager.getBlockOverrides().entrySet()) {
             long position = entry.getKey();
             int x = (int) (position >> 38);
-            int z = (int) (position & 0x3FFFFFFL);
-            if ((z & 0x2000000) != 0) {
-                z -= 0x4000000;
-            }
+            int z = (int) (position << 26 >> 38);
             int startX = chunkViewStart(centerChunkX, JOIN_CHUNK_DIAMETER);
             int startZ = chunkViewStart(centerChunkZ, JOIN_CHUNK_DIAMETER);
             if ((x >> 4) < startX || (x >> 4) >= startX + JOIN_CHUNK_DIAMETER
@@ -313,6 +310,12 @@ public final class ModernConfigurationDriver {
                     continue;
                 }
                 for (ModernBlockEntity entity : chunk.getModernBlockEntities()) {
+                    // A legacy bed entity is not a missing mapping in 26.2+.
+                    // Its colored block state was already sent; retain its NBT in
+                    // the source world for 774/775 without sending an invalid type.
+                    if (typeMap.isKnownRemoved(entity.getId())) {
+                        continue;
+                    }
                     int typeId = typeMap.resolve(entity.getId());
                     if (typeId < 0) {
                         cn.starry.narcissus.Narcissus.LOGGER.warning(
@@ -352,8 +355,6 @@ public final class ModernConfigurationDriver {
     }
 
     private static long packBlockPosition(int x, int y, int z) {
-        return ((long) (x & 0x3FFFFFF) << 38)
-                | ((long) (y & 0xFFF) << 26)
-                | (z & 0x3FFFFFFL);
+        return cn.starry.narcissus.functions.packets.out.protocol.v774.ModernPacketEncoding.position(x, y, z);
     }
 }

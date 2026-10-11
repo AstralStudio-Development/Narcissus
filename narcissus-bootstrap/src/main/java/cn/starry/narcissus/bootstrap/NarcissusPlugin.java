@@ -159,7 +159,9 @@ public class NarcissusPlugin extends Plugin implements Listener {
                 this, this::refreshStaffRegistrationCode, 15, 15, TimeUnit.MINUTES);
 
         getLogger().info("Narcissus limbo server ready on port " + port
-                + ". Native protocols: 47 (1.8.x), 774 (1.21.11), 776 (26.2, experimental).");
+                + ". Native protocols: 47 (1.8.x), 774 (1.21.11), "
+                + "775 (26.1 / 26.1.1 / 26.1.2), 776 (26.2), 777 (26.3). "
+                + "26.x adapters still require real-client end-to-end validation.");
         getLogger().info("Allowed client protocols: " + config.getAllowedVersions());
         getLogger().info("Note: players must be able to reach this BungeeCord build with their client "
                 + "protocol; the proxy forwards protocol numbers unchanged (no translation).");

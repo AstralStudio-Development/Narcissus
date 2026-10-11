@@ -36,5 +36,14 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    test {
+        useJUnitPlatform()
+        maxParallelForks = 1
+        forkEvery = 0
+        jvmArgs '-Xms8m', '-Xmx128m', '-Xshare:off', '-XX:ActiveProcessorCount=2',
+                '-XX:+UseSerialGC', '-XX:TieredStopAtLevel=1'
     }
 }

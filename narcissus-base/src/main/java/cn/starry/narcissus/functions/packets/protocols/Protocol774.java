@@ -158,9 +158,9 @@ public class Protocol774 extends AbstractProtocol implements ModernProtocol {
         registerPacketOut(Status.CONFIGURATION, 0x03, PacketConfigOutFinish774.class);
         registerPacketOut(Status.CONFIGURATION, 0x04, PacketOutKeepAlive774.class);
         registerPacketOut(Status.CONFIGURATION, 0x07, PacketConfigOutRegistryData774.class);
-        registerPacketOut(Status.CONFIGURATION, 0x0C, PacketConfigOutUpdateEnabledFeatures774.class);
-        registerPacketOut(Status.CONFIGURATION, 0x0D, PacketConfigOutUpdateTags774.class);
-        registerPacketOut(Status.CONFIGURATION, 0x0E, PacketConfigOutSelectKnownPacks774.class);
+        registerPacketOut(Status.CONFIGURATION, idConfigOutEnabledFeatures(), PacketConfigOutUpdateEnabledFeatures774.class);
+        registerPacketOut(Status.CONFIGURATION, idConfigOutUpdateTags(), PacketConfigOutUpdateTags774.class);
+        registerPacketOut(Status.CONFIGURATION, idConfigOutSelectKnownPacks(), PacketConfigOutSelectKnownPacks774.class);
 
         // PLAY (serverbound: consume everything, react to chat/commands,
         // teleport/keepalive/chunk batch and player actions)
@@ -210,8 +210,12 @@ public class Protocol774 extends AbstractProtocol implements ModernProtocol {
         registerPacketOut(Status.PLAY, idPlayOutBlockUpdate(), PacketPlayOutBlockUpdate774.class);
     }
 
-    // Packet-id hooks. 774 returns the 1.21.11 ids; Protocol776 overrides the
-    // ones that moved in 26.2 so the registry tables are always version-correct.
+    // Packet-id hooks keep inherited serializers registered at each release's
+    // actual ids, including the configuration changes introduced in 26.3.
+    protected int idConfigOutEnabledFeatures() { return 0x0c; }
+    protected int idConfigOutUpdateTags() { return 0x0d; }
+    protected int idConfigOutSelectKnownPacks() { return 0x0e; }
+    protected int playerEntityTypeId() { return 155; }
     protected int idPlayInAcceptTeleport() { return ID_PLAY_IN_ACCEPT_TELEPORT; }
     protected int idPlayInChatCommand() { return ID_PLAY_IN_CHAT_COMMAND; }
     protected int idPlayInChatCommandSigned() { return ID_PLAY_IN_CHAT_COMMAND_SIGNED; }
@@ -382,7 +386,7 @@ public class Protocol774 extends AbstractProtocol implements ModernProtocol {
     public cn.starry.narcissus.functions.packets.out.PacketOut createPlayerNpc(
             int entityId, java.util.UUID uuid, double x, double y, double z,
             float yaw, float pitch) {
-        return new PacketPlayOutAddEntity774(entityId, uuid, 155, x, y, z, yaw, pitch);
+        return new PacketPlayOutAddEntity774(entityId, uuid, playerEntityTypeId(), x, y, z, yaw, pitch);
     }
 
     @Override
@@ -456,7 +460,7 @@ public class Protocol774 extends AbstractProtocol implements ModernProtocol {
             int chunkX, int chunkZ, cn.starry.narcissus.functions.world.WorldLighting lighting,
             java.util.BitSet skySections, java.util.BitSet blockSections) {
         return new PacketPlayOutLightUpdate774(chunkX, chunkZ, lighting,
-                skySections, blockSections);
+                skySections, blockSections, hasByteArrayLightMasks());
     }
 
     // ---- AbstractProtocol abstract methods ----

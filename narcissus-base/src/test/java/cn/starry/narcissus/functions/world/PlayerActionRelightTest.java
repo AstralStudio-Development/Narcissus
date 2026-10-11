@@ -154,7 +154,7 @@ class PlayerActionRelightTest
     private static long packBlockPosition(int x, int y, int z)
     {
         return ((long) (x & 0x3FFFFFF) << 38)
-                | ((long) (y & 0xFFF) << 26)
-                | (z & 0x3FFFFFFL);
+                | ((long) (z & 0x3FFFFFF) << 12)
+                | (y & 0xFFFL);
     }
 }

@@ -17,7 +17,7 @@ import java.net.InetSocketAddress;
  *
  * Selects the native backend protocol implementation by the client's handshake
  * protocol number (no ViaVersion translation). Narcissus natively supports a
- * discrete set of protocols (v47, v774, v776); any other LOGIN attempt is
+ * discrete set of protocols (v47, v774-v777); any other LOGIN attempt is
  * rejected with a clear message rather than pretending to support it.
  *
  * For STATUS pings from unsupported versions we still answer using a generic
@@ -83,7 +83,8 @@ public class PacketInHandshake implements PacketIn
         if (protocol == null)
         {
             networkManager.disconnect(playerManager,
-                    "§c你的版本暂不被此服务器支持（协议 " + this.version + "）。当前原生支持: 1.8.x / 1.21.11 / 26.2。");
+                    "§c你的版本暂不被此服务器支持（协议 " + this.version
+                            + "）。当前原生支持: 1.8.x / 1.21.11 / 26.1 / 26.1.1 / 26.1.2 / 26.2 / 26.3。");
             return;
         }
 

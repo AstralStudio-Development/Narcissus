@@ -24,8 +24,8 @@ public interface ModernProtocol {
     List<byte[]> getRegistryBodies(boolean clientKnowsCore);
 
     /**
-     * Pre-serialized update_tags body (after the packet id), or null when the
-     * protocol has no tagged registries to declare.
+     * Non-null pre-serialized update_tags body (after the packet id).
+     * Required vanilla tag fixtures are validated during protocol initialization.
      */
     byte[] getUpdateTagsBody();
 
@@ -49,6 +49,9 @@ public interface ModernProtocol {
 
     /** Whether this protocol writes the sample 26.2 section marker after blockCount. */
     boolean hasSectionBlockCountMarker();
+
+    /** 26.3 replaces variable BitSet long arrays with little-endian byte arrays. */
+    default boolean hasByteArrayLightMasks() { return false; }
 
     /** Maps legacy schematic id:meta to this protocol's global block-state ids. */
     cn.starry.narcissus.functions.modern.LegacyBlockMap getLegacyBlockMap();

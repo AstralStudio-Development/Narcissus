@@ -1,7 +1,5 @@
 package cn.starry.narcissus;
 
-import cn.starry.narcissus.functions.auth.AuthenticationProvider;
-import cn.starry.narcissus.functions.auth.AuthenticationSessionHandler;
 import cn.starry.narcissus.functions.config.Configuration;
 import cn.starry.narcissus.functions.managers.NetworkManager;
 import cn.starry.narcissus.util.ConsoleUtil;
@@ -47,8 +45,6 @@ public class Narcissus implements AutoCloseable
 
     private final Configuration configuration;
     private final Path dataDirectory;
-    private final AuthenticationProvider authenticationProvider;
-    private final AuthenticationSessionHandler authenticationSessionHandler;
 
     private volatile NetworkManager networkManager;
     private volatile World world;
@@ -57,17 +53,8 @@ public class Narcissus implements AutoCloseable
 
     public Narcissus(Configuration configuration, Path dataDirectory)
     {
-        this(configuration, dataDirectory, null, null);
-    }
-
-    public Narcissus(Configuration configuration, Path dataDirectory,
-                     AuthenticationProvider authenticationProvider,
-                     AuthenticationSessionHandler authenticationSessionHandler)
-    {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.dataDirectory = Objects.requireNonNull(dataDirectory, "dataDirectory");
-        this.authenticationProvider = authenticationProvider;
-        this.authenticationSessionHandler = authenticationSessionHandler;
     }
 
     /**
@@ -142,8 +129,7 @@ public class Narcissus implements AutoCloseable
 
         this.loadWorld();
 
-        NetworkManager manager = new NetworkManager(this.world, this.configuration,
-                this.authenticationProvider, this.authenticationSessionHandler);
+        NetworkManager manager = new NetworkManager(this.world, this.configuration);
         manager.bind(this.configuration.getIp(), this.configuration.getPort());
         this.networkManager = manager;
         this.running = true;

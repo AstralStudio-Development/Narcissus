@@ -27,14 +27,12 @@ public class NarcissusConfig {
     private final double spawnX, spawnY, spawnZ;
     private final float spawnYaw, spawnPitch;
     private final List<Integer> allowedVersions;
-    private final String loginTargetServer;
-    private final String accountsFile;
-    private final String staffAccountFile;
+    private final String lobbyServer;
 
     private NarcissusConfig(int port, String schematicFile, byte dimension, byte gameMode,
                              int maxSlots, double spawnX, double spawnY, double spawnZ,
                              float spawnYaw, float spawnPitch, List<Integer> allowedVersions,
-                             String loginTargetServer, String accountsFile, String staffAccountFile) {
+                             String lobbyServer) {
         this.port = port;
         this.schematicFile = schematicFile;
         this.dimension = dimension;
@@ -46,9 +44,7 @@ public class NarcissusConfig {
         this.spawnYaw = spawnYaw;
         this.spawnPitch = spawnPitch;
         this.allowedVersions = List.copyOf(allowedVersions);
-        this.loginTargetServer = loginTargetServer;
-        this.accountsFile = accountsFile;
-        this.staffAccountFile = staffAccountFile;
+        this.lobbyServer = lobbyServer;
     }
 
     public static NarcissusConfig load(Path yamlFile) throws Exception {
@@ -68,12 +64,11 @@ public class NarcissusConfig {
             double spawnZ = getDouble(spawn, "z", 0.5);
             float spawnYaw = (float) getDouble(spawn, "yaw", 0.0);
             float spawnPitch = (float) getDouble(spawn, "pitch", 0.0);
-            String loginTargetServer = getString(settings, "login_target_server", "Login");
-            String accountsFile = getString(settings, "accounts_file", "accounts.yml");
-            String staffAccountFile = getString(settings, "staff_account_file", "staffAccount.yml");
+            String lobbyServer = getString(settings, "lobby_server",
+                    getString(settings, "login_target_server", "lobby"));
             return new NarcissusConfig(port, schematicFile, dimension, gameMode, maxSlots,
                     spawnX, spawnY, spawnZ, spawnYaw, spawnPitch, allowedVersions,
-                    loginTargetServer, accountsFile, staffAccountFile);
+                    lobbyServer);
         }
     }
 
@@ -147,7 +142,10 @@ public class NarcissusConfig {
     public float getSpawnYaw() { return spawnYaw; }
     public float getSpawnPitch() { return spawnPitch; }
     public List<Integer> getAllowedVersions() { return allowedVersions; }
-    public String getLoginTargetServer() { return loginTargetServer; }
-    public String getAccountsFile() { return accountsFile; }
-    public String getStaffAccountFile() { return staffAccountFile; }
+    /**
+     * BungeeCord server ID used by {@code /lobby}. Falls back to the legacy
+     * {@code login_target_server} key so existing configurations keep working
+     * after the login layer was removed.
+     */
+    public String getLobbyServer() { return lobbyServer; }
 }

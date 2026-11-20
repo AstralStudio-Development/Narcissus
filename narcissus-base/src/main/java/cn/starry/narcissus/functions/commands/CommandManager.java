@@ -58,15 +58,10 @@ public final class CommandManager {
         });
         // Context-aware permission checks and packet sending happen in handleChat.
         this.registerCommand("time", args -> Collections.singletonList(TIME_USAGE));
-        // Authentication commands are handled by NetworkManager, but registering
-        // their labels keeps modern Brigadier and legacy tab completion consistent.
-        this.registerCommand("register", args -> Collections.singletonList("&e用法：/register <密码>"));
-        this.registerCommand("login", args -> Collections.singletonList("&e用法：/login <密码或2FACode>"));
-        this.registerCommand("2fa", args -> Collections.singletonList("&e用法：/2fa add 或 /2fa confirm <验证码>"));
         // /lobby and /hub are intercepted by the Bungee proxy on every server
-        // (including Limbo) and route authenticated players back to the
-        // configured login target. Registered here only for tab completion;
-        // the core fallback message applies when no proxy handles the command.
+        // (including Limbo) and route players back to the configured lobby.
+        // Registered here only for tab completion; the core fallback message
+        // applies when no proxy handles the command.
         this.registerCommand("lobby", args -> Collections.singletonList("&e正在返回大厅…"));
         this.registerCommand("hub", args -> Collections.singletonList("&e正在返回大厅…"));
     }
@@ -155,9 +150,6 @@ public final class CommandManager {
 
     /** Dispatches input and sends every resulting line through the active protocol. */
     public void handleChat(NetworkManager networkManager, PlayerManager playerManager, String input) {
-        if (networkManager.handleAuthenticationCommand(playerManager, input)) {
-            return;
-        }
         if (networkManager.handleTimeCommand(playerManager, input)) {
             return;
         }

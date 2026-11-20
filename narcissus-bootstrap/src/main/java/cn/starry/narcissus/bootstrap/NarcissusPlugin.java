@@ -1,8 +1,6 @@
 package cn.starry.narcissus.bootstrap;
 
 import cn.starry.narcissus.Narcissus;
-import cn.starry.narcissus.functions.auth.AuthenticationProvider;
-import cn.starry.narcissus.functions.auth.AuthenticationSessionHandler;
 import cn.starry.narcissus.functions.config.Configuration;
 import cn.starry.narcissus.functions.packets.PlayerListEntry;
 import cn.starry.narcissus.util.SkinPropertyPayload;
@@ -11,15 +9,12 @@ import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.event.PlayerDisconnectEvent;
-import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.PreLoginEvent;
-import net.md_5.bungee.api.event.ServerConnectEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
 import net.md_5.bungee.api.event.ServerKickEvent;
 import net.md_5.bungee.api.plugin.Command;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
-import net.md_5.bungee.api.scheduler.ScheduledTask;
 import net.md_5.bungee.event.EventHandler;
 
 import java.io.IOException;
@@ -28,46 +23,40 @@ import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
  * BungeeCord plugin entry point for the Narcissus limbo backend.
  *
- * There is no protocol-translation prerequisite (no ViaVersion/ViaBungee): the
+ * <p>Narcissus is a pure fallback server: players are routed by BungeeCord's own
+ * default-server rules on join, and only land in Limbo when their current server
+ * kicks them or when they run {@code /limbo} explicitly. There is no account,
+ * password or 2FA layer, and joining the proxy never redirects to a separate
+ * login server.</p>
+ *
+ * <p>There is no protocol-translation prerequisite (no ViaVersion/ViaBungee): the
  * Narcissus backend natively speaks every protocol it advertises. BungeeCord
  * forwards each player at their real client protocol number, and the backend
  * selects the matching native implementation. This does require the BungeeCord
  * build itself to understand the client protocol (the proxy passes protocol
- * numbers through unchanged), which is an operator-side prerequisite.
+ * numbers through unchanged), which is an operator-side prerequisite.</p>
  */
 public class NarcissusPlugin extends Plugin implements Listener {
 
     public static final String SERVER_NAME = "narcissus-limbo";
 
-    private static final long STAFF_CODE_VALIDITY_MILLIS = 15L * 60L * 1000L;
-    private static final char[] STAFF_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
-
-    private final SecureRandom random = new SecureRandom();
-    private final Set<String> authenticatedSessions = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pendingLimboRoutes = ConcurrentHashMap.newKeySet();
 
     private Narcissus narcissus;
     private NarcissusConfig narcissusConfig;
-    private AuthenticationProvider authenticationProvider;
     private ServerInfo limboServerInfo;
-    private ServerInfo loginTargetServerInfo;
+    private ServerInfo lobbyServerInfo;
     private Command limboCommand;
     private Command lobbyCommand;
-    private Command narcissusCommand;
-    private ScheduledTask staffCodeTask;
-    private volatile String staffRegistrationCode;
-    private volatile long staffRegistrationCodeExpiresAt;
 
     @Override
     public void onEnable() {
@@ -87,17 +76,6 @@ public class NarcissusPlugin extends Plugin implements Listener {
             return;
         }
         this.narcissusConfig = config;
-        this.refreshStaffRegistrationCode();
-        try {
-            this.authenticationProvider = new YamlAuthenticationProvider(
-                    dataDir.resolve(config.getAccountsFile()),
-                    dataDir.resolve(config.getStaffAccountFile()),
-                    dataDir.resolve("totp.key"),
-                    this::isValidStaffRegistrationCode);
-        } catch (IOException ex) {
-            getLogger().log(Level.SEVERE, "Failed to load authentication files", ex);
-            return;
-        }
 
         int port = config.getPort();
         Configuration coreConfig = Configuration.builder()
@@ -112,18 +90,7 @@ public class NarcissusPlugin extends Plugin implements Listener {
                         config.getSpawnYaw(), config.getSpawnPitch())
                 .build();
 
-        narcissus = new Narcissus(coreConfig, dataDir, this.authenticationProvider,
-                new AuthenticationSessionHandler() {
-                    @Override
-                    public boolean isAuthenticated(String username) {
-                        return isAuthenticatedSession(username);
-                    }
-
-                    @Override
-                    public void onAuthenticated(String username) {
-                        markAuthenticatedAndTransfer(username);
-                    }
-                });
+        narcissus = new Narcissus(coreConfig, dataDir);
         try {
             narcissus.start();
         } catch (Exception ex) {
@@ -139,30 +106,28 @@ public class NarcissusPlugin extends Plugin implements Listener {
         ProxyServer.getInstance().getServers().put(SERVER_NAME, limboServerInfo);
         getLogger().info("Registered server " + SERVER_NAME + " at 127.0.0.1:" + port);
 
-        this.loginTargetServerInfo = ProxyServer.getInstance()
-                .getServerInfo(config.getLoginTargetServer());
-        if (this.loginTargetServerInfo == null
-                || SERVER_NAME.equals(this.loginTargetServerInfo.getName())) {
-            getLogger().severe("Configured login_target_server does not resolve to a valid non-Narcissus Bungee server: "
-                    + config.getLoginTargetServer());
+        this.lobbyServerInfo = ProxyServer.getInstance()
+                .getServerInfo(config.getLobbyServer());
+        if (this.lobbyServerInfo == null
+                || SERVER_NAME.equals(this.lobbyServerInfo.getName())) {
+            getLogger().severe("Configured lobby_server does not resolve to a valid non-Narcissus Bungee server: "
+                    + config.getLobbyServer());
         } else {
-            getLogger().info("Successful login target: " + this.loginTargetServerInfo.getName());
+            getLogger().info("Lobby target: " + this.lobbyServerInfo.getName());
         }
 
         limboCommand = new LimboCommand(this);
-        narcissusCommand = new NarcissusAdminCommand(this);
         lobbyCommand = new LobbyCommand(this);
         ProxyServer.getInstance().getPluginManager().registerCommand(this, limboCommand);
-        ProxyServer.getInstance().getPluginManager().registerCommand(this, narcissusCommand);
         ProxyServer.getInstance().getPluginManager().registerCommand(this, lobbyCommand);
-        staffCodeTask = ProxyServer.getInstance().getScheduler().schedule(
-                this, this::refreshStaffRegistrationCode, 15, 15, TimeUnit.MINUTES);
 
         getLogger().info("Narcissus limbo server ready on port " + port
                 + ". Native protocols: 47 (1.8.x), 774 (1.21.11), "
                 + "775 (26.1 / 26.1.1 / 26.1.2), 776 (26.2), 777 (26.3). "
                 + "26.x adapters still require real-client end-to-end validation.");
         getLogger().info("Allowed client protocols: " + config.getAllowedVersions());
+        getLogger().info("Login is disabled: players keep BungeeCord's normal join routing and only "
+                + "reach Limbo through /limbo or a server-kick fallback.");
         getLogger().info("Note: players must be able to reach this BungeeCord build with their client "
                 + "protocol; the proxy forwards protocol numbers unchanged (no translation).");
     }
@@ -184,33 +149,6 @@ public class NarcissusPlugin extends Plugin implements Listener {
             event.setCancelReason("§c此服务器不允许你的客户端版本（协议 " + protocol
                     + "）。允许的协议版本：" + config.getAllowedVersions());
         }
-    }
-
-    @EventHandler
-    public void onPostLogin(PostLoginEvent event) {
-        ProxiedPlayer player = event.getPlayer();
-        if (!isAuthenticatedSession(player.getName())) {
-            connectToLimbo(player);
-        }
-    }
-
-    @EventHandler
-    public void onServerConnect(ServerConnectEvent event) {
-        ProxiedPlayer player = event.getPlayer();
-        ServerInfo target = event.getTarget();
-        if (target == null) {
-            return;
-        }
-
-        boolean toLimbo = SERVER_NAME.equals(target.getName());
-        boolean authenticated = isAuthenticatedSession(player.getName());
-        if (!toLimbo && !authenticated) {
-            // Unauthenticated players are always forced into the Limbo server.
-            event.setCancelled(true);
-            connectToLimbo(player);
-        }
-        // Authenticated players may freely enter the Limbo server via /limbo;
-        // the core recognises their session and does not re-prompt for login.
     }
 
     @EventHandler
@@ -238,8 +176,6 @@ public class NarcissusPlugin extends Plugin implements Listener {
 
     @EventHandler
     public void onPlayerDisconnect(PlayerDisconnectEvent event) {
-        String username = normalize(event.getPlayer().getName());
-        this.authenticatedSessions.remove(username);
         this.pendingLimboRoutes.remove(event.getPlayer().getUniqueId());
     }
 
@@ -247,7 +183,7 @@ public class NarcissusPlugin extends Plugin implements Listener {
      * Redirects players to the Limbo server instead of disconnecting them when
      * their current server goes down or kicks them (e.g. a backend shutdown).
      * The kick is cancelled and the player is sent to Limbo, preserving their
-     * proxy connection and authenticated session.
+     * proxy connection.
      */
     @EventHandler
     public void onServerKick(ServerKickEvent event) {
@@ -271,8 +207,6 @@ public class NarcissusPlugin extends Plugin implements Listener {
         Files.createDirectories(dataDir);
         Files.createDirectories(dataDir.resolve("languages"));
         copyResourceIfAbsent(dataDir, "narcissus.yml");
-        copyResourceIfAbsent(dataDir, "accounts.yml");
-        copyResourceIfAbsent(dataDir, "staffAccount.yml");
         copyResourceIfAbsent(dataDir, "world.schematic");
         copyResourceIfAbsent(dataDir.resolve("languages"), "en_US.yml");
         copyResourceIfAbsent(dataDir.resolve("languages"), "zh_CN.yml");
@@ -313,10 +247,10 @@ public class NarcissusPlugin extends Plugin implements Listener {
         });
     }
 
-    private void connectToLoginTarget(ProxiedPlayer player) {
-        ServerInfo target = this.loginTargetServerInfo;
+    private void connectToLobby(ProxiedPlayer player) {
+        ServerInfo target = this.lobbyServerInfo;
         if (target == null || SERVER_NAME.equals(target.getName())) {
-            player.sendMessage(new TextComponent("§c登录目标服务器未配置或不存在，请联系管理员。"));
+            player.sendMessage(new TextComponent("§c大厅服务器未配置或不存在，请联系管理员。"));
             return;
         }
         if (player.getServer() != null && target.getName().equals(player.getServer().getInfo().getName())) {
@@ -325,66 +259,13 @@ public class NarcissusPlugin extends Plugin implements Listener {
         player.connect(target, (success, cause) -> {
             if (!success) {
                 String reason = cause == null ? "unknown error" : cause.getMessage();
-                player.sendMessage(new TextComponent("§c无法连接登录目标服务器：" + reason));
+                player.sendMessage(new TextComponent("§c无法连接大厅服务器：" + reason));
             }
         });
     }
 
-    private void markAuthenticatedAndTransfer(String username) {
-        String normalized = normalize(username);
-        if (normalized.isEmpty()) {
-            return;
-        }
-        this.authenticatedSessions.add(normalized);
-        ProxiedPlayer player = ProxyServer.getInstance().getPlayer(username);
-        if (player != null) {
-            connectToLoginTarget(player);
-        }
-    }
-
-    private boolean isAuthenticatedSession(String username) {
-        return this.authenticatedSessions.contains(normalize(username));
-    }
-
-    private void refreshStaffRegistrationCode() {
-        StringBuilder code = new StringBuilder(8);
-        for (int i = 0; i < 8; i++) {
-            code.append(STAFF_CODE_ALPHABET[this.random.nextInt(STAFF_CODE_ALPHABET.length)]);
-        }
-        this.staffRegistrationCode = code.toString();
-        this.staffRegistrationCodeExpiresAt = System.currentTimeMillis() + STAFF_CODE_VALIDITY_MILLIS;
-        getLogger().info("Staff registration code refreshed; use /narcissus code in the Bungee console to view it.");
-    }
-
-    private boolean isValidStaffRegistrationCode(String code) {
-        return code != null
-                && System.currentTimeMillis() < this.staffRegistrationCodeExpiresAt
-                && code.trim().equalsIgnoreCase(this.staffRegistrationCode);
-    }
-
-    private String getStaffRegistrationCode() {
-        if (System.currentTimeMillis() >= this.staffRegistrationCodeExpiresAt) {
-            this.refreshStaffRegistrationCode();
-        }
-        return this.staffRegistrationCode;
-    }
-
-    private long getStaffRegistrationCodeRemainingMinutes() {
-        long remaining = Math.max(0L, this.staffRegistrationCodeExpiresAt - System.currentTimeMillis());
-        return (remaining + 59_999L) / 60_000L;
-    }
-
-    private static String normalize(String username) {
-        return username == null ? "" : username.trim().toLowerCase(java.util.Locale.ROOT);
-    }
-
     private void rollback() {
         ProxyServer.getInstance().getPluginManager().unregisterListener(this);
-        if (this.staffCodeTask != null) {
-            this.staffCodeTask.cancel();
-            this.staffCodeTask = null;
-        }
-        this.authenticatedSessions.clear();
         this.pendingLimboRoutes.clear();
         if (limboCommand != null) {
             ProxyServer.getInstance().getPluginManager().unregisterCommand(limboCommand);
@@ -393,10 +274,6 @@ public class NarcissusPlugin extends Plugin implements Listener {
         if (lobbyCommand != null) {
             ProxyServer.getInstance().getPluginManager().unregisterCommand(lobbyCommand);
             lobbyCommand = null;
-        }
-        if (narcissusCommand != null) {
-            ProxyServer.getInstance().getPluginManager().unregisterCommand(narcissusCommand);
-            narcissusCommand = null;
         }
         if (limboServerInfo != null) {
             ProxyServer.getInstance().getServers().remove(SERVER_NAME, limboServerInfo);
@@ -441,9 +318,9 @@ public class NarcissusPlugin extends Plugin implements Listener {
     }
 
     /**
-     * Returns an authenticated player to the configured login target server.
-     * Registered at the proxy so it works on every backend server (Limbo
-     * included) regardless of the connected game server.
+     * Returns a player from Limbo to the configured lobby server. Registered at
+     * the proxy so it works on every backend server regardless of the connected
+     * game server.
      */
     private static final class LobbyCommand extends Command {
         private final NarcissusPlugin plugin;
@@ -459,13 +336,9 @@ public class NarcissusPlugin extends Plugin implements Listener {
                 sender.sendMessage(new TextComponent("§cThis command can only be used by players."));
                 return;
             }
-            if (!plugin.isAuthenticatedSession(player.getName())) {
-                player.sendMessage(new TextComponent("§c请先完成登录后再返回大厅。"));
-                return;
-            }
-            ServerInfo targetServer = plugin.loginTargetServerInfo;
+            ServerInfo targetServer = plugin.lobbyServerInfo;
             if (targetServer == null || SERVER_NAME.equals(targetServer.getName())) {
-                player.sendMessage(new TextComponent("§c登录目标服务器未配置或不存在，请联系管理员。"));
+                player.sendMessage(new TextComponent("§c大厅服务器未配置或不存在，请联系管理员。"));
                 return;
             }
             if (player.getServer() != null
@@ -473,30 +346,7 @@ public class NarcissusPlugin extends Plugin implements Listener {
                 player.sendMessage(new TextComponent("§e你已经在大厅服务器。"));
                 return;
             }
-            plugin.connectToLoginTarget(player);
-        }
-    }
-
-    private static final class NarcissusAdminCommand extends Command {
-        private final NarcissusPlugin plugin;
-
-        NarcissusAdminCommand(NarcissusPlugin plugin) {
-            super("narcissus");
-            this.plugin = plugin;
-        }
-
-        @Override
-        public void execute(net.md_5.bungee.api.CommandSender sender, String[] args) {
-            if (sender instanceof ProxiedPlayer) {
-                sender.sendMessage(new TextComponent("§c该命令只能在 BungeeCord 控制台执行。"));
-                return;
-            }
-            if (args.length == 1 && args[0].equalsIgnoreCase("code")) {
-                sender.sendMessage(new TextComponent("§aStaff 注册码：§e" + plugin.getStaffRegistrationCode()));
-                sender.sendMessage(new TextComponent("§7剩余有效时间约：" + plugin.getStaffRegistrationCodeRemainingMinutes() + " 分钟"));
-                return;
-            }
-            sender.sendMessage(new TextComponent("§e用法：/narcissus code"));
+            plugin.connectToLobby(player);
         }
     }
 }

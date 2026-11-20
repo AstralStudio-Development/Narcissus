@@ -20,25 +20,33 @@ class NarcissusPluginTest {
     }
 
     @Test
-    void defaultsLoginTargetServerToLogin(@TempDir Path tempDir) throws Exception {
+    void defaultsLobbyServer(@TempDir Path tempDir) throws Exception {
         Path config = tempDir.resolve("narcissus.yml");
         Files.writeString(config, "settings: {}\n");
 
         NarcissusConfig loaded = NarcissusConfig.load(config);
 
-        assertEquals("Login", loaded.getLoginTargetServer());
+        assertEquals("lobby", loaded.getLobbyServer());
+    }
+
+    @Test
+    void legacyLoginTargetServerStillResolvesTheLobby(@TempDir Path tempDir) throws Exception {
+        Path config = tempDir.resolve("narcissus.yml");
+        Files.writeString(config, "settings:\n  login_target_server: Login\n");
+
+        NarcissusConfig loaded = NarcissusConfig.load(config);
+
+        assertEquals("Login", loaded.getLobbyServer());
     }
 
     @Test
     void loadsAllowVersionListFromYaml(@TempDir Path tempDir) throws Exception {
         Path config = tempDir.resolve("narcissus.yml");
-        Files.writeString(config, "settings:\n  allow-version:\n    - 47\n    - 774\n  login_target_server: survival\n  accounts_file: users.yml\n  staff_account_file: staff.yml\n");
+        Files.writeString(config, "settings:\n  allow-version:\n    - 47\n    - 774\n  lobby_server: survival\n");
 
         NarcissusConfig loaded = NarcissusConfig.load(config);
 
         assertEquals(Arrays.asList(47, 774), loaded.getAllowedVersions());
-        assertEquals("survival", loaded.getLoginTargetServer());
-        assertEquals("users.yml", loaded.getAccountsFile());
-        assertEquals("staff.yml", loaded.getStaffAccountFile());
+        assertEquals("survival", loaded.getLobbyServer());
     }
 }

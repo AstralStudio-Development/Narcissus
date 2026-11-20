@@ -1,7 +1,7 @@
 # Narcissus Limbo Server Configuration
-# config-version: 4
+# config-version: 5
 
-config-version: 4
+config-version: 5
 
 settings:
   # Default language file to use (must match a file in the languages/ folder without extension)
@@ -22,11 +22,9 @@ settings:
     - 775  # 26.1 / 26.1.1 / 26.1.2
     - 776  # 26.2
     - 777  # 26.3
-  # BungeeCord server ID to connect to after successful login.
-  login_target_server: Login
-  # Authentication data files relative to the plugin data folder.
-  accounts_file: accounts.yml
-  staff_account_file: staffAccount.yml
+  # BungeeCord server ID used by /lobby to leave Limbo.
+  # The legacy key login_target_server is still accepted when this is absent.
+  lobby_server: lobby
   # Dimension: 0=overworld, -1=nether, 1=end
   dimension: 1
   # Gamemode: 0=survival, 1=creative, 2=adventure, 3=spectator

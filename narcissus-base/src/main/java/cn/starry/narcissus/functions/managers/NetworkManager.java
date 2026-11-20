@@ -1,9 +1,6 @@
 package cn.starry.narcissus.functions.managers;
 
 import cn.starry.narcissus.Narcissus;
-import cn.starry.narcissus.functions.auth.AuthenticationProvider;
-import cn.starry.narcissus.functions.auth.AuthenticationResult;
-import cn.starry.narcissus.functions.auth.AuthenticationSessionHandler;
 import cn.starry.narcissus.functions.config.Configuration;
 import cn.starry.narcissus.functions.packets.AbstractProtocol;
 import cn.starry.narcissus.functions.packets.PacketSerializer;
@@ -120,8 +117,6 @@ public class NetworkManager
     /** Immutable schematic template; never mutated by a player action. */
     private final World templateWorld;
     private final CommandManager commandManager;
-    private final AuthenticationProvider authenticationProvider;
-    private final AuthenticationSessionHandler authenticationSessionHandler;
     private final MojangSkinProvider skinProvider;
     private final WorldTimeService worldTimeService;
     private final Map<SocketChannel, PlayerManager> playerManagers = new ConcurrentHashMap<>();
@@ -138,28 +133,16 @@ public class NetworkManager
 
     public NetworkManager(World world, Configuration configuration)
     {
-        this(world, configuration, null, null);
-    }
-
-    public NetworkManager(World world, Configuration configuration,
-                          AuthenticationProvider authenticationProvider,
-                          AuthenticationSessionHandler authenticationSessionHandler)
-    {
-        this(world, configuration, authenticationProvider, authenticationSessionHandler,
-                new WorldTimeService());
+        this(world, configuration, new WorldTimeService());
     }
 
     /** Test injection point for deterministic UTC+8 scheduling. */
     NetworkManager(World world, Configuration configuration,
-                   AuthenticationProvider authenticationProvider,
-                   AuthenticationSessionHandler authenticationSessionHandler,
                    WorldTimeService worldTimeService)
     {
         this.configuration = configuration;
         this.templateWorld = world;
         this.commandManager = new CommandManager();
-        this.authenticationProvider = authenticationProvider;
-        this.authenticationSessionHandler = authenticationSessionHandler;
         this.skinProvider = new MojangSkinProvider();
         if (worldTimeService == null)
             throw new IllegalArgumentException("WorldTimeService cannot be null");
@@ -626,15 +609,7 @@ public class NetworkManager
         return this.worldTimeService;
     }
 
-    public boolean isStaffAccount(PlayerManager playerManager)
-    {
-        return playerManager != null
-                && playerManager.isAuthenticated()
-                && this.authenticationProvider != null
-                && this.authenticationProvider.isStaffAccount(playerManager.getUserName());
-    }
-
-    /** Handles the side-effecting Staff-only personal world-time command. */
+    /** Handles the side-effecting personal world-time command. */
     public boolean handleTimeCommand(PlayerManager playerManager, String input)
     {
         String value = input == null ? "" : input.trim();
@@ -648,11 +623,6 @@ public class NetworkManager
         if (!parts[0].equalsIgnoreCase("time"))
             return false;
 
-        if (!this.isStaffAccount(playerManager))
-        {
-            this.sendMessage(playerManager, "&c只有已认证的 Staff 账号可以使用 /time。");
-            return true;
-        }
         if (parts.length != 2)
         {
             this.sendMessage(playerManager, TIME_COMMAND_USAGE);
@@ -756,7 +726,6 @@ public class NetworkManager
                     }));
         }
 
-        this.sendAuthenticationPrompt(playerManager);
         this.sendPlayerNpc(playerManager);
     }
 
@@ -1112,248 +1081,6 @@ public class NetworkManager
         else
         {
             this.sendPacket(viewer, new PacketPlayOutPlayerInfo47(entries));
-        }
-    }
-
-    /**
-     * Intercepts authentication commands and blocks all other player commands
-     * until the current Bungee session has authenticated.
-     */
-    public boolean handleAuthenticationCommand(PlayerManager playerManager, String input)
-    {
-        if (this.authenticationProvider == null)
-            return false;
-
-        String value = input == null ? "" : input.trim();
-        if (!value.startsWith("/"))
-        {
-            if (!playerManager.isAuthenticated())
-            {
-                this.sendMessage(playerManager, "&e请先完成认证：/register <密码> 或 /login <密码>");
-                return true;
-            }
-            return false;
-        }
-
-        String line = value.substring(1).trim();
-        if (line.isEmpty())
-            return this.rejectUnauthenticated(playerManager);
-
-        String[] parts = line.split("\\s+");
-        String command = parts[0].toLowerCase(java.util.Locale.ROOT);
-        boolean authCommand = command.equals("register")
-                || command.equals("login")
-                || command.equals("2fa");
-        if (!authCommand)
-            return this.rejectUnauthenticated(playerManager);
-
-        if (playerManager.isAuthenticated())
-        {
-            this.sendMessage(playerManager, "&e你已经登录，不能重复进入登录状态。");
-            return true;
-        }
-
-        String[] args = java.util.Arrays.copyOfRange(parts, 1, parts.length);
-        if (command.equals("register"))
-        {
-            if (args.length != 1)
-            {
-                this.sendMessage(playerManager, "&e用法：/register <密码>");
-                return true;
-            }
-            AuthenticationResult result = this.authenticationProvider.register(
-                    playerManager.getUserName(), args[0]);
-            switch (result.getStatus())
-            {
-                case REGISTERED:
-                    this.sendMessage(playerManager, "&a注册成功，请使用 &e/login <密码> &a登录。");
-                    break;
-                case STAFF_REGISTERED:
-                    this.sendMessage(playerManager,
-                            "&aStaff 账号注册成功，请使用 &e/2fa add &a配置 Microsoft Authenticator。");
-                    break;
-                case ALREADY_REGISTERED:
-                    this.sendMessage(playerManager, "&e账号已经注册，请使用 &e/login <密码> &e登录。");
-                    break;
-                case STAFF_CODE_REQUIRED:
-                    this.sendMessage(playerManager, "&cStaff 账号不能使用普通密码注册，请使用控制台注册码。");
-                    break;
-                case INVALID_STAFF_CODE:
-                    this.sendMessage(playerManager, "&c注册码错误或已过期，请联系管理员重新获取注册码。");
-                    break;
-                case STORAGE_ERROR:
-                    this.sendMessage(playerManager, "&c账号保存失败，请联系管理员检查 accounts.yml。");
-                    break;
-                default:
-                    this.sendMessage(playerManager, "&c注册失败。");
-                    break;
-            }
-            return true;
-        }
-
-        if (command.equals("login"))
-        {
-            if (args.length != 1)
-            {
-                this.sendMessage(playerManager, "&e用法：/login <密码或2FACode>");
-                return true;
-            }
-            AuthenticationResult result = this.authenticationProvider.login(
-                    playerManager.getUserName(), args[0]);
-            switch (result.getStatus())
-            {
-                case LOGIN_SUCCESS:
-                    this.completeAuthentication(playerManager);
-                    break;
-                case NOT_REGISTERED:
-                    this.sendMessage(playerManager, "&e账号尚未注册，请使用 &e/register <密码> &e注册。");
-                    break;
-                case INVALID_PASSWORD:
-                    this.sendMessage(playerManager, "&c密码错误。");
-                    break;
-                case TWO_FACTOR_NOT_CONFIGURED:
-                    this.sendMessage(playerManager, "&c请先配置 2FA：/2fa add");
-                    break;
-                case INVALID_TWO_FACTOR:
-                    this.sendMessage(playerManager, "&c2FA 验证码错误或已过期。");
-                    break;
-                case STORAGE_ERROR:
-                    this.sendMessage(playerManager, "&c账号读取失败，请联系管理员检查 accounts.yml。");
-                    break;
-                default:
-                    this.sendMessage(playerManager, "&c登录失败。");
-                    break;
-            }
-            return true;
-        }
-
-        if (args.length == 1 && args[0].equalsIgnoreCase("add"))
-        {
-            AuthenticationResult result = this.authenticationProvider.beginTwoFactorSetup(
-                    playerManager.getUserName());
-            switch (result.getStatus())
-            {
-                case TWO_FACTOR_SETUP_READY:
-                    this.sendMessage(playerManager, "&a请将以下密钥添加到 Microsoft Authenticator：");
-                    this.sendCopyableMessage(playerManager, "&f密钥：&e", result.getValue());
-                    this.sendMessage(playerManager, "&a添加完成后执行：&e/2fa confirm <验证码>");
-                    break;
-                case NOT_STAFF_ACCOUNT:
-                    this.sendMessage(playerManager, "&c只有 Staff 账号需要配置 2FA。");
-                    break;
-                case NOT_REGISTERED:
-                    this.sendMessage(playerManager, "&c请先完成 Staff 注册。");
-                    break;
-                case STORAGE_ERROR:
-                    this.sendMessage(playerManager, "&c2FA 保存失败，请联系管理员检查 accounts.yml。");
-                    break;
-                default:
-                    this.sendMessage(playerManager, "&c无法开始 2FA 配置。");
-                    break;
-            }
-            return true;
-        }
-
-        if (args.length == 2 && args[0].equalsIgnoreCase("confirm"))
-        {
-            AuthenticationResult result = this.authenticationProvider.confirmTwoFactor(
-                    playerManager.getUserName(), args[1]);
-            switch (result.getStatus())
-            {
-                case TWO_FACTOR_ENABLED:
-                    this.completeAuthentication(playerManager);
-                    break;
-                case INVALID_TWO_FACTOR:
-                    this.sendMessage(playerManager, "&c2FA 验证码错误或已过期。");
-                    break;
-                case NOT_STAFF_ACCOUNT:
-                    this.sendMessage(playerManager, "&c只有 Staff 账号需要配置 2FA。");
-                    break;
-                case TWO_FACTOR_NOT_CONFIGURED:
-                    this.sendMessage(playerManager, "&c请先执行 /2fa add 获取密钥。");
-                    break;
-                default:
-                    this.sendMessage(playerManager, "&c2FA 配置失败。");
-                    break;
-            }
-            return true;
-        }
-
-        this.sendMessage(playerManager, "&e用法：/2fa add 或 /2fa confirm <验证码>");
-        return true;
-    }
-
-    private boolean rejectUnauthenticated(PlayerManager playerManager)
-    {
-        if (playerManager.isAuthenticated())
-            return false;
-        this.sendMessage(playerManager, "&c请先完成认证，再使用其他命令。");
-        return true;
-    }
-
-    private void sendAuthenticationPrompt(PlayerManager playerManager)
-    {
-        if (this.authenticationProvider == null)
-            return;
-
-        if (this.authenticationSessionHandler != null
-                && this.authenticationSessionHandler.isAuthenticated(playerManager.getUserName()))
-        {
-            playerManager.setAuthenticated(true);
-            return;
-        }
-
-        String username = playerManager.getUserName();
-        boolean staff = this.authenticationProvider.isStaffAccount(username);
-        if (!this.authenticationProvider.isRegistered(username))
-        {
-            if (staff)
-                this.sendMessage(playerManager, "&e这是 Staff 账号，请向管理员获取注册码后使用 /register <注册码>。");
-            else
-                this.sendMessage(playerManager, "&e请先注册账号：&b/register <密码>");
-            return;
-        }
-
-        if (staff)
-        {
-            if (this.authenticationProvider.isTwoFactorConfigured(username))
-                this.sendMessage(playerManager, "&e请使用 &b/login <2FACode> &e登录。");
-            else
-                this.sendMessage(playerManager, "&e该 Staff 账号尚未配置 2FA，请使用 &b/2fa add&e。");
-        }
-        else
-        {
-            this.sendMessage(playerManager, "&e请使用 &b/login <密码> &e登录。");
-        }
-    }
-
-    private void completeAuthentication(PlayerManager playerManager)
-    {
-        playerManager.setAuthenticated(true);
-        this.sendMessage(playerManager, "&a登录成功，正在传送到目标服务器。");
-        if (this.authenticationSessionHandler != null)
-            this.authenticationSessionHandler.onAuthenticated(playerManager.getUserName());
-    }
-
-    /** Sends a value with a click-only suffix, leaving the value itself plain. */
-    public void sendCopyableMessage(PlayerManager playerManager, String label, String value)
-    {
-        String formattedLabel = TextUtil.replaceChar(label);
-        String display = formattedLabel + (value == null ? "" : value);
-        String button = " §b[点我复制]";
-        if (playerManager.getProtocol() instanceof ModernProtocol)
-        {
-            sendPacket(playerManager,
-                    PacketPlayOutSystemChat774.clickableSuffix(
-                            display, button, "copy_to_clipboard", value, false));
-        }
-        else
-        {
-            // 1.8 does not implement copy_to_clipboard; only the button gets the
-            // suggest_command fallback so the secret text itself remains plain.
-            String json = TextUtil.toJsonClickableSuffixComponent(
-                    display, button, "suggest_command", value);
-            sendPacket(playerManager, new PacketPlayOutChat47(json, true));
         }
     }
 

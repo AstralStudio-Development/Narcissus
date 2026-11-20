@@ -58,19 +58,19 @@ class CommandManagerTest {
 
     @Test
     void suggestionsUseCommandTokenRange() {
-        assertEquals(Arrays.asList("limbo", "version", "time", "register", "login", "2fa", "lobby", "hub"),
+        assertEquals(Arrays.asList("limbo", "version", "time", "lobby", "hub"),
                 this.commandManager.getCommandLabels());
 
         CommandManager.Suggestion root = this.commandManager.suggest("/");
         assertEquals(1, root.getStart());
         assertEquals(0, root.getLength());
-        assertEquals(Arrays.asList("limbo", "version", "time", "register", "login", "2fa", "lobby", "hub"), root.getMatches());
+        assertEquals(Arrays.asList("limbo", "version", "time", "lobby", "hub"), root.getMatches());
 
         CommandManager.Suggestion partial = this.commandManager.suggest("/ver");
         assertEquals(1, partial.getStart());
         assertEquals(3, partial.getLength());
         assertEquals(Arrays.asList("version"), partial.getMatches());
 
-        assertEquals(Arrays.asList("/limbo", "/login", "/lobby"), this.commandManager.suggestLegacy("/l"));
+        assertEquals(Arrays.asList("/limbo", "/lobby"), this.commandManager.suggestLegacy("/l"));
     }
 }

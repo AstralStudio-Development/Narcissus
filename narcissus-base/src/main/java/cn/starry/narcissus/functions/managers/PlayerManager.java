@@ -62,7 +62,6 @@ public class PlayerManager
     private boolean awaitingTeleportConfirm;
     private long lastSentKeepAliveId;
     private String clientBrand;
-    private boolean authenticated;
     private volatile PlayerListEntry.ProfileProperty skinProperty;
     private volatile int skinParts = 0x7F;
     private NpcSchedule.State npcState;
@@ -371,16 +370,6 @@ public class PlayerManager
     public void setClientBrand(String clientBrand)
     {
         this.clientBrand = clientBrand;
-    }
-
-    public boolean isAuthenticated()
-    {
-        return this.authenticated;
-    }
-
-    public void setAuthenticated(boolean authenticated)
-    {
-        this.authenticated = authenticated;
     }
 
     public PlayerListEntry.ProfileProperty getSkinProperty()
